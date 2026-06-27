@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🐂 Rekla Receipt Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;700;800&family=Lora:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f1117;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+    .header-icon { font-size: 36px; }
+    .header-title { font-size: 22px; font-weight: 700; color: #fff; }
+    .header-sub   { font-size: 13px; color: #888; margin-top: 2px; }
+
+    /* ── Cards ──────────────────────────── */
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a3a;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Upload zone ────────────────────── */
+    .upload-zone {
+      border: 2px dashed #3a3a5a;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: #e8a020;
+      background: rgba(232,160,32,0.05);
+    }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon  { font-size: 40px; margin-bottom: 10px; }
+    .upload-text  { font-size: 15px; color: #ccc; }
+    .upload-hint  { font-size: 12px; color: #666; margin-top: 6px; }
+
+    .file-loaded {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 14px;
+    }
+    .file-loaded-icon { font-size: 20px; }
+    .file-loaded-name { font-weight: 600; color: #22c55e; font-size: 14px; }
+    .file-loaded-rows { font-size: 12px; color: #888; }
+
+    /* ── Filter ─────────────────────────── */
+    .filter-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .filter-label { font-size: 13px; color: #aaa; white-space: nowrap; }
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #3a3a5a;
+      background: transparent;
+      color: #ccc;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover  { border-color: #e8a020; color: #e8a020; }
+    .filter-btn.active { background: #e8a020; border-color: #e8a020; color: #000; font-weight: 700; }
+
+    /* ── Preview table ───────────────────── */
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #2a2a3a; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th {
+      background: #111128;
+      color: #888;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #2a2a3a;
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #1e1e30;
+      color: #ddd;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-paid    { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .badge-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+
+    .more-rows {
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      color: #555;
+      border-top: 1px solid #2a2a3a;
+    }
+
+    /* ── Generate section ───────────────── */
+    .generate-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .count-badge {
+      background: rgba(232,160,32,0.12);
+      border: 1px solid rgba(232,160,32,0.3);
+      color: #e8a020;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .btn-generate {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #e8a020;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-generate:hover    { background: #f5b830; transform: translateY(-1px); }
+    .btn-generate:disabled { background: #3a3a3a; color: #666; cursor: not-allowed; transform: none; }
+
+    .btn-change {
+      background: transparent;
+      border: 1px solid #3a3a5a;
+      color: #aaa;
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-change:hover { border-color: #666; color: #fff; }
+
+    /* ── Progress ───────────────────────── */
+    .progress-wrap { margin-top: 16px; display: none; }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .progress-bar-bg {
+      background: #2a2a3a;
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e8a020, #f5b830);
+      border-radius: 99px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    /* ── Messages ───────────────────────── */
+    .msg {
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+    .msg-success { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.3);  color: #22c55e; }
+    .msg-error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3);  color: #ef4444; }
+
+    /* ── Empty state ────────────────────── */
+    #previewSection { display: none; }
+    #generateSection { display: none; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #555;
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state-text { font-size: 14px; }
+
+    /* ── Custom Fonts and CSS for Receipts ───────────────── */
+    .receipt-wrapper {
+      background: white;
+      color: black;
+      width: 400px;
+      height: 568px;
+      padding: 16px;
+      border: 2px solid black;
+      box-sizing: border-box;
+      font-family: 'Mukta Malar', 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .receipt-inner {
+      border: 1px solid black;
+      padding: 8px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .receipt-header {
+      text-align: center;
+      border-bottom: 1px solid black;
+      padding-bottom: 12px;
+      margin-bottom: 4px;
+    }
+
+    .receipt-title {
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 0;
+    }
+
+    .receipt-subtitle {
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin: 4px 0 0 0;
+    }
+
+    .receipt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .receipt-table tr {
+      border-bottom: 1px solid black !important;
+    }
+
+    .receipt-table tr:last-child, .receipt-table tr.no-border {
+      border-bottom: none !important;
+    }
+
+    .receipt-table td {
+      padding: 6px 8px;
+      vertical-align: middle;
+      color: black !important;
+      border-bottom: 1px solid black !important;
+      white-space: normal !important;
+    }
+
+    .receipt-table tr:last-child td, .receipt-table tr.no-border td {
+      border-bottom: none !important;
+    }
+
+    .receipt-table td.label-col {
+      width: 130px;
+      border-right: 1px solid black !important;
+      text-align: left;
+      color: black !important;
+    }
+
+    .receipt-table td.value-col {
+      text-align: left;
+      color: black !important;
+    }
+
+    .receipt-value {
+      font-family: 'Lora', 'Georgia', serif;
+    }
+
+    .font-black {
+      font-weight: 800;
+    }
+
+    .font-bold {
+      font-weight: 700;
+    }
+
+    .text-lg {
+      font-size: 18px;
+    }
+
+    .text-xl {
+      font-size: 20px;
+    }
+
+    .text-2xl {
+      font-size: 24px;
+    }
+
+    .text-sm {
+      font-size: 13px;
+    }
+
+    .text-xs {
+      font-size: 11px;
+    }
+
+    .text-red {
+      color: #dc2626 !important;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .flex-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .leading-tight {
+      line-height: 1.25;
+    }
+
+    .mt-05 {
+      margin-top: 2px;
+    }
+
+    .mt-03 {
+      margin-top: 1px;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🐂</div>
+    <div>
+      <div class="header-title">Rekla Receipt Generator</div>
+      <div class="header-sub">Upload your CSV export → Generate bulk PDF receipts instantly</div>
+    </div>
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <div class="card-title">Step 1 — Upload CSV File</div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="csvFile" accept=".csv,.tsv,text/tab-separated-values,text/csv" />
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">Click to upload or drag &amp; drop your CSV file</div>
+      <div class="upload-hint">Supports the Rekla registration export format (.csv / .tsv / tab-separated)</div>
+    </div>
+    <div class="file-loaded" id="fileLoaded" style="display:none">
+      <div class="file-loaded-icon">✅</div>
+      <div>
+        <div class="file-loaded-name" id="fileLoadedName"></div>
+        <div class="file-loaded-rows" id="fileLoadedRows"></div>
+      </div>
+    </div>
+    <div class="msg msg-error" id="uploadError"></div>
+  </div>
+
+  <!-- Step 2: Preview -->
+  <div class="card" id="previewSection">
+    <div class="card-title">Step 2 — Preview Data</div>
+
+    <!-- Filter buttons -->
+    <div class="filter-row" id="filterRow">
+      <span class="filter-label">Filter:</span>
+      <button class="filter-btn active" data-filter="ALL" onclick="applyFilter(this)">All</button>
+      <button class="filter-btn" data-filter="PAID" onclick="applyFilter(this)">PAID only</button>
+      <button class="filter-btn" data-filter="PENDING" onclick="applyFilter(this)">PENDING only</button>
+    </div>
+    <div style="margin-bottom:12px"></div>
+
+    <div class="table-wrap">
+      <table id="previewTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Entry ID</th>
+            <th>Event</th>
+            <th>Category</th>
+            <th>Seat No</th>
+            <th>Member 1</th>
+            <th>Member 1 ID</th>
+            <th>Member 2</th>
+            <th>Member 2 ID</th>
+            <th>Amount (₹)</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+      <div class="more-rows" id="moreRows" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Step 3: Generate -->
+  <div class="card" id="generateSection">
+    <div class="card-title">Step 3 — Generate PDF</div>
+    <div class="generate-row">
+      <div class="count-badge" id="countBadge">0 receipts ready</div>
+      <button class="btn-generate" id="btnGenerate" onclick="startGenerate()">
+        ⬇ Download All as PDF
+      </button>
+      <button class="btn-change" onclick="resetApp()">↩ Change File</button>
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressText">Generating...</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </div>
+    <div class="msg msg-success" id="successMsg"></div>
+    <div class="msg msg-error"   id="generateError"></div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let allRows      = [];   // all parsed rows
+let filteredRows = [];   // after filter
+let currentFilter = 'ALL';
+
+// ═══════════════════════════════════════════════════════
+//  CSV PARSER  (handles tab-separated with quoted fields)
+// ═══════════════════════════════════════════════════════
+function parseTabCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  // Detect delimiter: tab or comma
+  const delim = lines[0].includes('\t') ? '\t' : ',';
+
+  // Parse header — strip quotes and whitespace
+  const headers = lines[0].split(delim).map(h => h.replace(/^["'\s]+|["'\s]+$/g, '').trim());
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    // Split on delimiter respecting quotes
+    const cols = [];
+    let inQ = false, cur = '';
+    for (let c = 0; c < line.length; c++) {
+      const ch = line[c];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === delim && !inQ) { cols.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cols.push(cur);
+
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = (cols[idx] || '').replace(/^["'\s]+|["'\s]+$/g, '').trim();
+    });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// Clean entry ID: remove leading whitespace/quotes  e.g. "	0001" → "0001"
+function cleanId(raw) {
+  return String(raw || '').replace(/[^0-9A-Za-z]/g, '').replace(/^0+(\d)/, (_, d) => d.padStart(4, '0')) || raw;
+}
+
+function cleanEntryId(raw) {
+  // "	0001" → "0001"
+  return String(raw || '').trim().replace(/\s+/g, '').padStart(4, '0');
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE UPLOAD
+// ═══════════════════════════════════════════════════════
+document.getElementById('csvFile').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadFile(file);
+});
+
+// Drag-and-drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
+
+function loadFile(file) {
+  hideMsg('uploadError');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const rows = parseTabCSV(e.target.result);
+      if (rows.length === 0) { showError('uploadError', 'No data rows found in the file.'); return; }
+
+      // Check required columns
+      const required = ['Entry ID', 'Event', 'Category', 'Seat No',
+                        'Member 1 Name', 'Member 1 ID', 'Payment Status', 'Date'];
+      const headers  = Object.keys(rows[0]);
+      const missing  = required.filter(r => !headers.includes(r));
+      if (missing.length) {
+        showError('uploadError', `Missing columns: ${missing.join(', ')}`);
+        return;
+      }
+
+      allRows = rows;
+      applyFilterData('ALL');
+
+      // Show file info
+      document.getElementById('fileLoaded').style.display = 'flex';
+      document.getElementById('fileLoadedName').textContent = file.name;
+      document.getElementById('fileLoadedRows').textContent = `${rows.length} rows loaded`;
+
+      document.getElementById('previewSection').style.display  = 'block';
+      document.getElementById('generateSection').style.display = 'block';
+
+    } catch(err) {
+      showError('uploadError', 'Failed to parse file: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILTER
+// ═══════════════════════════════════════════════════════
+function applyFilter(btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilterData(btn.dataset.filter);
+}
+
+function applyFilterData(f) {
+  currentFilter = f;
+  if (f === 'ALL')     filteredRows = allRows;
+  else if (f === 'PAID')    filteredRows = allRows.filter(r => r['Payment Status'] === 'PAID');
+  else if (f === 'PENDING') filteredRows = allRows.filter(r => r['Payment Status'] === 'PENDING');
+  renderPreview();
+  updateCount();
+}
+
+// ═══════════════════════════════════════════════════════
+//  PREVIEW TABLE
+// ═══════════════════════════════════════════════════════
+function renderPreview() {
+  const tbody   = document.getElementById('previewBody');
+  const moreDiv = document.getElementById('moreRows');
+  tbody.innerHTML = '';
+
+  const show = filteredRows.slice(0, 8);
+  show.forEach((row, i) => {
+    const status = row['Payment Status'] || '';
+    const badge  = status === 'PAID'
+      ? `<span class="badge badge-paid">PAID</span>`
+      : `<span class="badge badge-pending">${status}</span>`;
+
+    const m2name = row['Member 2 Name'];
+    const m2id   = row['Member 2 ID'];
+    const m2show = (!m2name || m2name === 'N/A') ? '—' : m2name;
+    const m2idShow = (!m2id || m2id === 'N/A') ? '—' : m2id;
+
+    tbody.innerHTML += `<tr>
+      <td>${i + 1}</td>
+      <td><b>${(row['Entry ID'] || '').trim()}</b></td>
+      <td>${row['Event'] || ''}</td>
+      <td>${row['Category'] || ''}</td>
+      <td>${row['Seat No'] || ''}</td>
+      <td>${row['Member 1 Name'] || ''}</td>
+      <td style="color:#e8a020">${row['Member 1 ID'] || ''}</td>
+      <td>${m2show}</td>
+      <td style="color:#e8a020">${m2idShow}</td>
+      <td>₹${row['Amount'] || row['Entry Fee'] || row['Category'] || ''}</td>
+      <td>${badge}</td>
+      <td>${row['Date'] || ''}</td>
+    </tr>`;
+  });
+
+  if (filteredRows.length > 8) {
+    moreDiv.style.display = 'block';
+    moreDiv.textContent   = `... and ${filteredRows.length - 8} more rows`;
+  } else {
+    moreDiv.style.display = 'none';
+  }
+}
+
+function updateCount() {
+  document.getElementById('countBadge').textContent = `${filteredRows.length} receipts ready`;
+  document.getElementById('btnGenerate').disabled   = filteredRows.length === 0;
+}
+
+function getParticipantHTML(name, location, userId, isSecond = false, m1id = '') {
+  if (isSecond && (!name || name === 'N/A' || name.trim() === '' || name === '0' || name === '()')) {
+    return `<div class="text-base font-bold receipt-value">NA</div>`;
+  }
+  
+  const cleanName = (name || '').trim();
+  const cleanLoc = (location || '').trim();
+  const cleanUser = (userId || '').trim();
+  
+  if (!cleanName && !cleanUser) {
+    return `<div class="text-base font-bold receipt-value">NA</div>`;
+  }
+  
+  if (cleanName === '0' || cleanName === '()' || cleanName === 'N/A') {
+    return `<div class="text-base font-bold receipt-value">NA</div>`;
+  }
+  
+  let html = `<div class="flex-col leading-tight">`;
+  html += `<span class="text-base font-black">${cleanName}${cleanLoc ? `, ${cleanLoc}.` : ''}</span>`;
+  if (cleanUser && cleanUser !== '0' && cleanUser !== 'N/A') {
+    html += `<span class="text-sm font-bold receipt-value mt-05">(${cleanUser})</span>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function generateReceiptHTML(row) {
+  const entryId   = (row['Entry ID'] || '').trim().replace(/\s+/g,'').padStart(4,'0');
+  const event     = row['Event']    || row['Event Name'] || 'Rekla Race';
+  const eventLoc  = row['Event Location'] || '';
+  const dateRaw   = row['Date'] || row['Date Created'] || '';
+  const category  = row['Category Name'] || row['Category'] || '';
+  const seatNo    = row['Bib Number'] || row['Seat No'] || '';
+  const carNo     = row['Car Number'] || '';
+  const amount    = row['Amount'] || row['Entry Fee'] || row['Category'] || '0.00';
+  
+  let eventDate = '';
+  if (dateRaw) {
+    const firstPart = dateRaw.split(' ')[0];
+    eventDate = firstPart.replace(/-/g, '.').replace(/\//g, '.');
+  }
+
+  const m1name    = row['Member 1 Name'] || '';
+  const m1id      = row['Member 1 ID']   || '';
+  const m1loc     = row['Member 1 Location'] || '';
+  
+  const m2name    = row['Member 2 Name'] || '';
+  const m2id      = row['Member 2 ID']   || '';
+  const m2loc     = row['Member 2 Location'] || '';
+
+  const formattedAmount = isNaN(parseFloat(amount)) ? '0.00' : parseFloat(amount).toFixed(2);
+
+  return `
+    <div class="receipt-wrapper">
+      <div class="receipt-inner">
+        <div class="receipt-header">
+          <h2 class="receipt-title">வண்டி ரசீது - ${category}</h2>
+          <p class="receipt-subtitle">
+            ${eventLoc ? eventLoc + ' ' : ''}ரேக்ளா போட்டி ${eventDate} - (${category})
+          </p>
+        </div>
+        
+        <table class="receipt-table">
+          <tbody>
+            <tr>
+              <td class="label-col">
+                <div class="flex-col leading-tight" style="justify-content: center;">
+                  <span>குலுக்கல்</span>
+                  <span>வரிசை எண்</span>
+                </div>
+              </td>
+              <td class="value-col text-2xl font-black receipt-value">${seatNo}</td>
+            </tr>
+            <tr>
+              <td class="label-col">வண்டி எண்</td>
+              <td class="value-col text-lg font-black receipt-value">${carNo}</td>
+            </tr>
+            <tr>
+              <td class="label-col">பெயர்</td>
+              <td class="value-col text-sm font-bold">${getParticipantHTML(m1name, m1loc, m1id, false)}</td>
+            </tr>
+            <tr>
+              <td class="label-col">பெயர்</td>
+              <td class="value-col text-sm font-bold">${getParticipantHTML(m2name, m2loc, m2id, true, m1id)}</td>
+            </tr>
+            <tr style="height: 40px;">
+              <td class="label-col">நேரம்</td>
+              <td class="value-col text-xl font-bold receipt-value"></td>
+            </tr>
+            <tr>
+              <td class="label-col">ரூபாய்</td>
+              <td class="value-col text-xl font-bold receipt-value">${formattedAmount}</td>
+            </tr>
+            <tr>
+              <td colspan="2" class="text-sm font-bold text-center" style="padding: 6px 8px;">
+                நன்கொடையாக அன்புடன் பெறப்பட்டது
+              </td>
+            </tr>
+            <tr class="no-border">
+              <td class="label-col">ரசீது எண்</td>
+              <td class="value-col text-lg font-black receipt-value">${entryId}</td>
+            </tr>
+            <tr class="no-border">
+              <td colspan="2" class="text-center text-red" style="padding: 6px 8px; border-top: 1px solid black;">
+                <div class="text-xs font-black" style="letter-spacing: 0.5px;">
+                  NAMADHU REKLA <span style="text-transform: lowercase; font-weight: 700;">helpline number</span>
+                </div>
+                <div class="text-lg font-black receipt-value mt-03">
+                  7418094810
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ── Main generate function ──────────────────────────────
+async function startGenerate() {
+  if (filteredRows.length === 0) return;
+
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled = true;
+  hideMsg('successMsg');
+  hideMsg('generateError');
+
+  const progressWrap = document.getElementById('progressWrap');
+  progressWrap.style.display = 'block';
+  setProgress(0, 'Starting...');
+
+  // Create temporary container if not exists
+  let renderContainer = document.getElementById('receiptsRenderContainer');
+  if (!renderContainer) {
+    renderContainer = document.createElement('div');
+    renderContainer.id = 'receiptsRenderContainer';
+    renderContainer.style.position = 'absolute';
+    renderContainer.style.left = '-9999px';
+    renderContainer.style.top = '0';
+    renderContainer.style.width = '400px';
+    renderContainer.style.background = 'white';
+    document.body.appendChild(renderContainer);
+  }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+
+    const pdfWidth = 148;
+    const pdfHeight = 210;
+    const margin = 5;
+    const maxW = pdfWidth - (margin * 2); // 138mm
+    const maxH = pdfHeight - (margin * 2); // 200mm
+
+    const total = filteredRows.length;
+
+    for (let i = 0; i < total; i++) {
+      const row = filteredRows[i];
+      
+      // Render the receipt HTML inside the container
+      renderContainer.innerHTML = generateReceiptHTML(row);
+      
+      // Wait a short bit to ensure DOM updates and fonts load
+      await sleep(50);
+      
+      // Capture the container using html2canvas
+      const element = renderContainer.firstElementChild;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      if (i > 0) {
+        pdf.addPage('a5', 'portrait');
+      }
+
+      // Calculate placement
+      const width = element.offsetWidth || 400;
+      const height = element.offsetHeight || 568;
+
+      let imgW = maxW;
+      let imgH = (height / width) * imgW;
+
+      if (imgH > maxH) {
+        imgH = maxH;
+        imgW = (width / height) * imgH;
+      }
+
+      const x = (pdfWidth - imgW) / 2;
+      const y = (pdfHeight - imgH) / 2;
+
+      pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH);
+
+      const pct = Math.round(((i + 1) / total) * 100);
+      setProgress(pct, `Generating receipt ${i + 1} of ${total}...`);
+    }
+
+    setProgress(100, 'Saving PDF...');
+    await sleep(100);
+
+    const event = filteredRows[0]['Event'] || filteredRows[0]['Event Name'] || 'Rekla';
+    const cleanEventName = event.replace(/\s+/g, '_');
+    const cat = filteredRows[0]['Category'] || filteredRows[0]['Category Name'] || 'All';
+    const cleanCatName = cat.replace(/\s+/g, '_');
+    
+    const fname = `${cleanEventName}_${cleanCatName}_Receipts_${currentFilter}.pdf`;
+    pdf.save(fname);
+
+    showMsg('successMsg', `✅ PDF saved! "${fname}" — ${total} receipts`);
+
+  } catch (err) {
+    console.error(err);
+    showMsg('generateError', '❌ PDF generation failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    // Remove the render container
+    if (renderContainer) {
+      renderContainer.remove();
+    }
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 2000);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setProgress(pct, text) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = text;
+  document.getElementById('progressPct').textContent  = pct + '%';
+}
+
+function showMsg(id, text) {
+  const el = document.getElementById(id);
+  el.textContent   = text;
+  el.style.display = 'block';
+}
+function hideMsg(id) {
+  document.getElementById(id).style.display = 'none';
+}
+function showError(id, text) { showMsg(id, '⚠️ ' + text); }
+
+function resetApp() {
+  allRows = []; filteredRows = [];
+  document.getElementById('csvFile').value = '';
+  document.getElementById('fileLoaded').style.display  = 'none';
+  document.getElementById('previewSection').style.display  = 'none';
+  document.getElementById('generateSection').style.display = 'none';
+  hideMsg('uploadError');
+  hideMsg('successMsg');
+  hideMsg('generateError');
+}
+</script>
+</body>
+</html>
