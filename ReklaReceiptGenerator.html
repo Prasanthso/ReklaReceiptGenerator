@@ -445,6 +445,7 @@
           <tr>
             <th>#</th>
             <th>Entry ID</th>
+            <th>Bib Number</th>
             <th>Event</th>
             <th>Category</th>
             <th>Seat No</th>
@@ -641,6 +642,7 @@ function renderPreview() {
     tbody.innerHTML += `<tr>
       <td>${i + 1}</td>
       <td><b>${(row['Entry ID'] || '').trim()}</b></td>
+      <td style="color:#e8a020">${row['Bib Number'] || ''}</td>
       <td>${row['Event'] || ''}</td>
       <td>${row['Category'] || ''}</td>
       <td>${row['Seat No'] || ''}</td>
