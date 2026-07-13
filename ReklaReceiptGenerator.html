@@ -697,7 +697,7 @@ function getParticipantHTML(name, location, userId, isSecond = false, m1id = '')
 
 function generateReceiptHTML(row) {
   const entryId   = (row['Entry ID'] || '').trim().replace(/\s+/g,'').padStart(4,'0');
-  const event     = row['Event']    || row['Event Name'] || 'Rekla Race';
+  const event     = row['Event']    || row['Event Name'] || 'ரேக்ளா போட்டி';
   const eventLoc  = row['Event Location'] || '';
   const dateRaw   = row['Date'] || row['Date Created'] || '';
   const category  = row['Category Name'] || row['Category'] || '';
@@ -728,7 +728,7 @@ function generateReceiptHTML(row) {
         <div class="receipt-header">
           <h2 class="receipt-title">வண்டி ரசீது - ${category}</h2>
           <p class="receipt-subtitle">
-            ${eventLoc ? eventLoc + ' ' : ''}ரேக்ளா போட்டி ${eventDate} - (${category})
+            ${eventLoc ? eventLoc + ' ' : ''}${event} - (${eventDate})
           </p>
         </div>
         
